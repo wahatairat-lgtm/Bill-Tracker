@@ -254,6 +254,9 @@ select {
 .chips { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
 .chip { display: flex; align-items: center; gap: 6px; background: var(--accent-lt); border-radius: 20px; padding: 6px 12px; font-size: 13px; font-weight: 600; color: var(--accent); }
 .chip-del { background: none; border: none; color: #FFAA99; font-size: 15px; cursor: pointer; padding: 0 2px; }
+.chip-quick { display: flex; align-items: center; gap: 4px; background: var(--bg); border: 1.5px dashed var(--border); border-radius: 20px; padding: 6px 12px; font-size: 13px; font-weight: 600; color: var(--ink-2); cursor: pointer; transition: all .12s; }
+.chip-quick:active { background: var(--accent-lt); border-color: var(--accent); color: var(--accent); }
+.quick-hint { font-size: 11px; color: var(--ink-3); width: 100%; margin-bottom: 2px; }
 .add-row { display: flex; gap: 8px; }
 
 /* ─── Split ─── */
@@ -286,10 +289,10 @@ select {
 .install-box .ib-sub    { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
 
 /* ─── Stats ─── */
-.stat-hero { background: var(--ink); border-radius: var(--r); margin: 8px 14px; padding: 24px 20px; color: #fff; }
-.stat-hero-label { font-size: 11px; font-weight: 700; opacity: .5; text-transform: uppercase; letter-spacing: .8px; margin-bottom: 8px; }
+.stat-hero { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); margin: 8px 14px; padding: 24px 20px; color: var(--ink); }
+.stat-hero-label { font-size: 11px; font-weight: 700; color: var(--ink-3); text-transform: uppercase; letter-spacing: .8px; margin-bottom: 8px; }
 .stat-hero-val { font-family: 'Space Mono', monospace; font-size: 40px; font-weight: 700; color: var(--accent); line-height: 1; }
-.stat-hero-count { font-size: 13px; opacity: .45; margin-top: 8px; }
+.stat-hero-count { font-size: 13px; color: var(--ink-3); margin-top: 8px; }
 
 .bar-row { margin-bottom: 14px; }
 .bar-label { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 5px; font-weight: 600; }
@@ -433,6 +436,7 @@ select {
     <div class="fg">
       <label>เพิ่มชื่อคน</label>
       <div class="chips" id="chips"></div>
+      <div class="chips" id="quick-persons"></div>
       <div class="add-row">
         <input type="text" id="pname" placeholder="ชื่อ..." style="flex:1" onkeydown="if(event.key==='Enter'){event.preventDefault();addPerson()}">
         <button class="btn btn-ghost btn-sm" onclick="addPerson()">เพิ่ม</button>
@@ -507,8 +511,9 @@ function icon(name,size=14){
 }
 
 /* ══ STATE ══ */
-let bills=[], CB={}, editIdx=-1, persons=[], assign={}, ocrImg=null;
+let bills=[], CB={}, editIdx=-1, persons=[], assign={}, ocrImg=null, knownPersons=[];
 try { bills=JSON.parse(localStorage.getItem('bills')||'[]'); } catch(e){}
+try { knownPersons=JSON.parse(localStorage.getItem('knownPersons')||'[]'); } catch(e){}
 
 /* ══ UTILS ══ */
 const fmt  = n => '฿'+Number(n||0).toLocaleString('th',{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -595,16 +600,14 @@ function renderStats() {
   const el=document.getElementById('stats-content');
   if(!bills.length){el.innerHTML=`<div class="empty"><div class="ei">${icon('chart',40)}</div><p>ยังไม่มีข้อมูล</p></div>`;return;}
   const total=bills.reduce((s,b)=>s+(b.grand||0),0);
-  const byCard={},byStore={},byMonth={};
+  const byCard={},byMonth={};
   bills.forEach(b=>{
     if(b.card)  byCard[b.card]  =(byCard[b.card]||0)  +(b.grand||0);
-    if(b.store) byStore[b.store]=(byStore[b.store]||0) +(b.grand||0);
     if(b.date)  {const m=b.date.slice(0,7);byMonth[m]=(byMonth[m]||0)+(b.grand||0);}
   });
   const MN=['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
   const months=Object.entries(byMonth).sort((a,b)=>b[0]<a[0]?1:-1).slice(0,6);
   const tCards=Object.entries(byCard).sort((a,b)=>b[1]-a[1]).slice(0,6);
-  const tStores=Object.entries(byStore).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const allPersons=[...new Set(bills.flatMap(b=>b.persons||[]))];
   const personMonth={};
   bills.forEach(b=>{
@@ -640,11 +643,6 @@ function renderStats() {
     <div class="sec-label">บัตรที่ใช้</div>
     <div class="card">
       ${tCards.map(([c,a])=>{const cd=CARDS[c],due=cd?getNextDueDate(c):null,days=daysUntil(due);const ds=due?` · <span style="color:${days<=3?'#DC2626':days<=7?'#D97706':'var(--ink-3)'}">ครบ ${due.getDate()}/${due.getMonth()+1}</span>`:'';return`<div class="trow"><span>${icon('card')} ${c}${ds}</span><span class="tv">${fmt(a)}</span></div>`;}).join('')}
-    </div>`:''}
-    ${tStores.length?`
-    <div class="sec-label">ร้านที่ไปบ่อย</div>
-    <div class="card">
-      ${tStores.map(([s,a])=>`<div class="trow"><span>${icon('store')} ${s}</span><span class="tv">${fmt(a)}</span></div>`).join('')}
     </div>`:''}`;
 }
 
@@ -766,10 +764,14 @@ function calcT(){
 /* ══ PERSONS & SPLIT ══ */
 function renderPersons(){
   document.getElementById('chips').innerHTML=persons.map(p=>`<div class="chip">${icon('user')} ${p}<button class="chip-del" onclick="removePerson('${p}')">${icon('x',12)}</button></div>`).join('');
+  const qp=knownPersons.filter(p=>!persons.includes(p));
+  document.getElementById('quick-persons').innerHTML=qp.length?`<div class="quick-hint">เคยเพิ่ม — แตะเพื่อใส่</div>${qp.map(p=>`<div class="chip-quick" onclick="quickAddPerson('${p}')">+ ${p}</div>`).join('')}`:'';
   document.getElementById('split-section').classList.toggle('hidden',!persons.length);
   if(persons.length) renderSplit();
 }
-function addPerson(){const inp=document.getElementById('pname'),n=inp.value.trim();if(!n||persons.includes(n)){inp.value='';return;}persons.push(n);inp.value='';renderPersons();}
+function rememberPerson(n){if(!knownPersons.includes(n)){knownPersons.push(n);save('knownPersons',knownPersons);}}
+function addPerson(){const inp=document.getElementById('pname'),n=inp.value.trim();if(!n||persons.includes(n)){inp.value='';return;}persons.push(n);rememberPerson(n);inp.value='';renderPersons();}
+function quickAddPerson(n){if(persons.includes(n))return;persons.push(n);rememberPerson(n);renderPersons();}
 function removePerson(n){persons=persons.filter(p=>p!==n);Object.values(assign).forEach(s=>s.delete(n));renderPersons();}
 function renderSplit(){
   const mode=document.getElementById('split-mode').value,items=getItems(),aEl=document.getElementById('split-assign');
