@@ -195,7 +195,8 @@ input, select, textarea {
   font-size: 16px; outline: none; transition: border .15s, background .15s;
   -webkit-appearance: none; appearance: none; font-family: 'DM Sans', sans-serif;
 }
-input:focus, select:focus { border-color: var(--accent); background: var(--surface); }
+input:focus { border-color: var(--accent); background: var(--surface); }
+select:focus { border-color: var(--accent); }
 input[type=file] { display: none; }
 input[type=number] { font-family: 'Space Mono', monospace; }
 select {
@@ -268,10 +269,10 @@ select {
 .pcheck.on { background: var(--accent-lt); border-color: var(--accent); color: var(--accent); }
 
 /* ─── Summary header ─── */
-.sum-header { background: var(--ink); border-radius: var(--r); padding: 22px 20px; margin-bottom: 14px; color: #fff; }
-.sum-store { font-family: 'DM Sans', sans-serif; font-size: 18px; font-weight: 800; margin-bottom: 8px; letter-spacing: -.3px; }
+.sum-header { background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); padding: 22px 20px; margin-bottom: 14px; color: var(--ink); }
+.sum-store { font-family: 'DM Sans', sans-serif; font-size: 18px; font-weight: 800; margin-bottom: 8px; letter-spacing: -.3px; color: var(--ink); }
 .sum-amount { font-family: 'Space Mono', monospace; font-size: 36px; font-weight: 700; color: var(--accent); line-height: 1.1; }
-.sum-meta { font-size: 13px; opacity: .6; margin-top: 10px; display: flex; gap: 12px; flex-wrap: wrap; }
+.sum-meta { font-size: 13px; color: var(--ink-3); margin-top: 10px; display: flex; gap: 12px; flex-wrap: wrap; }
 
 /* ─── Card due info ─── */
 .card-due-info { background: var(--bg); border-radius: 10px; padding: 10px 14px; margin-top: 8px; font-size: 13px; color: var(--ink-2); display: flex; gap: 16px; flex-wrap: wrap; }
@@ -388,6 +389,9 @@ select {
           <option value="UOB">UOB</option>
           <option value="CardX">CardX</option>
           <option value="ShopeePay">ShopeePay</option>
+          <option value="the1">the1</option>
+          <option value="homepro">homepro</option>
+          <option value="Now">Now</option>
           <option value="other">อื่นๆ...</option>
         </select>
       </div>
@@ -395,7 +399,7 @@ select {
     <div id="card-info" class="card-due-info hidden"></div>
     <div class="fg hidden" id="card-custom-wrap"><label>ชื่อบัตร (อื่นๆ)</label><input type="text" id="card-custom" placeholder="ระบุชื่อบัตร"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="fg"><label>ผ่อนกี่เดือน</label><input type="number" id="binstall" placeholder="0" min="0" max="120" value="0"></div>
+      <div class="fg"><label>ผ่อนกี่เดือน</label><select id="binstall"><option value="0">ไม่ผ่อน</option><option value="3">3 เดือน</option><option value="4">4 เดือน</option><option value="6">6 เดือน</option><option value="10">10 เดือน</option></select></div>
       <div class="fg"><label>หมายเหตุ</label><input type="text" id="bnote" placeholder="ไม่บังคับ"></div>
     </div>
     <div style="display:flex;gap:10px;margin-top:4px">
@@ -412,9 +416,9 @@ select {
     <button class="btn btn-ghost btn-sm btn-block" style="margin:6px 0 14px" onclick="addItem()">＋ เพิ่มรายการ</button>
     <div class="totals-box">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:12px">
-        <div class="fg" style="margin:0"><label>ส่วนลด (%)</label><input type="number" id="disc" value="0" min="0" oninput="calcT()"></div>
-        <div class="fg" style="margin:0"><label>SC %</label><input type="number" id="sc" value="0" min="0" oninput="calcT()"></div>
-        <div class="fg" style="margin:0"><label>VAT %</label><input type="number" id="vat" value="0" min="0" oninput="calcT()"></div>
+        <div class="fg" style="margin:0"><label>ส่วนลด (%)</label><input type="number" id="disc" placeholder="0" min="0" oninput="calcT()"></div>
+        <div class="fg" style="margin:0"><label>SC %</label><input type="number" id="sc" placeholder="0" min="0" oninput="calcT()"></div>
+        <div class="fg" style="margin:0"><label>VAT %</label><input type="number" id="vat" placeholder="0" min="0" oninput="calcT()"></div>
       </div>
       <div class="trow"><span>ยอดรวม</span><span class="tv" id="t-sub">฿0.00</span></div>
       <div class="trow"><span>ส่วนลด</span><span class="tv-green" id="t-disc">-฿0.00</span></div>
@@ -481,6 +485,9 @@ const CARDS = {
   'UOB':           { cut:7,  due:25 },
   'CardX':         { cut:16, due:5  },
   'ShopeePay':     { cut:null, due:10 },
+  'the1':          { cut:10, due:30 },
+  'homepro':       { cut:25, due:14 },
+  'Now':           { cut:5,  due:25 },
 };
 
 /* ══ ICONS ══ */
@@ -619,6 +626,12 @@ function renderStats() {
     });
   });
   const pmMonths=[...new Set(Object.values(personMonth).flatMap(m=>Object.keys(m)))].sort().reverse().slice(0,6);
+  const cardPersonTotals={};
+  bills.forEach(b=>{
+    if(!b.card||!b.personTotals) return;
+    if(!cardPersonTotals[b.card]) cardPersonTotals[b.card]={};
+    Object.entries(b.personTotals).forEach(([p,a])=>{cardPersonTotals[b.card][p]=(cardPersonTotals[b.card][p]||0)+a;});
+  });
 
   el.innerHTML=`
     <div class="stat-hero">
@@ -649,7 +662,16 @@ function renderStats() {
     <div class="sec-label">บัตรที่ใช้</div>
     <div class="card">
       ${tCards.map(([c,a])=>{const cd=CARDS[c],due=cd?getNextDueDate(c):null,days=daysUntil(due);const ds=due?` · <span style="color:${days<=3?'#DC2626':days<=7?'#D97706':'var(--ink-3)'}">ครบ ${due.getDate()}/${due.getMonth()+1}</span>`:'';return`<div class="trow"><span>${icon('card')} ${c}${ds}</span><span class="tv">${fmt(a)}</span></div>`;}).join('')}
-    </div>`:''}`;
+    </div>`:''}
+    ${Object.keys(cardPersonTotals).length?`
+    <div class="sec-label">แต่ละบัตร ใครจ่ายเท่าไหร่</div>
+    ${Object.entries(cardPersonTotals).map(([c,pt])=>{
+      const cardTotal=Object.values(pt).reduce((s,a)=>s+a,0);
+      return `<div class="card">
+        <div class="pm-month-row"><span class="pm-month-label">${icon('card',13)} ${c}</span><span class="tv-red">${fmt(cardTotal)}</span></div>
+        ${Object.entries(pt).map(([p,a])=>`<div class="trow"><span>${icon('user')} ${p}</span><span class="tv">${fmt(a)}</span></div>`).join('')}
+      </div>`;
+    }).join('')}`:''}`;
 }
 
 /* ══ OCR ══ */
@@ -689,7 +711,7 @@ function showCardInfo() {
 }
 
 /* ══ MODAL ══ */
-function openNew(){editIdx=-1;CB={};persons=[];assign={};ocrImg=null;document.getElementById('step1-title').textContent='ข้อมูลบิล';document.getElementById('save-btn').textContent='บันทึก';resetForm();goStep(1,true);document.getElementById('modal-new').classList.remove('hidden');}
+function openNew(){clearDraft();editIdx=-1;CB={};persons=[];assign={};ocrImg=null;document.getElementById('step1-title').textContent='ข้อมูลบิล';document.getElementById('save-btn').textContent='บันทึก';resetForm();goStep(1,true);document.getElementById('modal-new').classList.remove('hidden');}
 function openEdit(i){
   editIdx=i;const b=bills[i];CB={...b};persons=b.persons?[...b.persons]:[];assign={};ocrImg=b.img||null;
   document.getElementById('step1-title').textContent='แก้ไขบิล';document.getElementById('save-btn').textContent='บันทึกการแก้ไข';
@@ -698,7 +720,7 @@ function openEdit(i){
   document.getElementById('card-custom').value=!CARDS[b.card]&&b.card?b.card:'';
   document.getElementById('card-custom-wrap').classList.toggle('hidden',!!CARDS[b.card]||!b.card);showCardInfo();
   document.getElementById('binstall').value=b.installMonths||0;document.getElementById('bnote').value=b.note||'';
-  document.getElementById('disc').value=b.disc||0;document.getElementById('sc').value=b.sc||0;document.getElementById('vat').value=b.vat??0;
+  document.getElementById('disc').value=b.disc||'';document.getElementById('sc').value=b.sc||'';document.getElementById('vat').value=b.vat||'';
   if(ocrImg) document.getElementById('photo-ph').innerHTML=`<img src="${ocrImg}" style="max-width:100%;border-radius:10px">`;
   else document.getElementById('photo-ph').innerHTML=`<div class="pa-icon">${icon('camera',28)}</div><div class="pa-text">แตะเพื่อเลือกรูป</div><div class="pa-sub">กล้อง หรือ รูปภาพในเครื่อง</div>`;
   document.getElementById('ocr-bar').className='hidden';document.getElementById('file-inp').value='';
@@ -709,12 +731,58 @@ function resetForm(){
   ['store','bnote'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('bdate').value=today();document.getElementById('bcard').value='';document.getElementById('card-custom').value='';
   document.getElementById('card-custom-wrap').classList.add('hidden');document.getElementById('card-info').classList.add('hidden');
-  document.getElementById('binstall').value='0';document.getElementById('disc').value='0';document.getElementById('sc').value='0';document.getElementById('vat').value='0';
+  document.getElementById('binstall').value='0';document.getElementById('disc').value='';document.getElementById('sc').value='';document.getElementById('vat').value='';
   document.getElementById('photo-ph').innerHTML=`<div class="pa-icon">${icon('camera',28)}</div><div class="pa-text">แตะเพื่อเลือกรูป</div><div class="pa-sub">กล้อง หรือ รูปภาพในเครื่อง</div>`;
   document.getElementById('ocr-bar').className='hidden';document.getElementById('file-inp').value='';renderItemsList([]);
 }
-function closeModals(){document.getElementById('modal-new').classList.add('hidden');document.getElementById('modal-detail').classList.add('hidden');}
+function closeModals(){clearDraft();document.getElementById('modal-new').classList.add('hidden');document.getElementById('modal-detail').classList.add('hidden');}
 function bgClose(e,id){if(e.target===e.currentTarget) closeModals();}
+
+/* ══ DRAFT AUTOSAVE (so in-progress entry survives a reload, e.g. after "Add to Home Screen") ══ */
+function saveDraft(){
+  if(document.getElementById('modal-new').classList.contains('hidden')) return;
+  const curStep=[1,2,3,4].find(i=>!document.getElementById('step-'+i).classList.contains('hidden'))||1;
+  const assignArr={};Object.entries(assign).forEach(([k,v])=>assignArr[k]=[...v]);
+  save('draftBill',{
+    editIdx,persons,assign:assignArr,ocrImg,step:curStep,
+    store:document.getElementById('store').value,
+    date:document.getElementById('bdate').value,
+    card:document.getElementById('bcard').value,
+    cardCustom:document.getElementById('card-custom').value,
+    note:document.getElementById('bnote').value,
+    install:document.getElementById('binstall').value,
+    disc:document.getElementById('disc').value,
+    sc:document.getElementById('sc').value,
+    vat:document.getElementById('vat').value,
+    items:getItems(),
+  });
+}
+function clearDraft(){ try{ localStorage.removeItem('draftBill'); }catch(e){} }
+function restoreDraftIfAny(){
+  let d;try{ d=JSON.parse(localStorage.getItem('draftBill')||'null'); }catch(e){ d=null; }
+  if(!d) return;
+  editIdx=d.editIdx??-1;persons=d.persons||[];ocrImg=d.ocrImg||null;CB={};
+  assign={};Object.entries(d.assign||{}).forEach(([k,v])=>assign[k]=new Set(v));
+  document.getElementById('step1-title').textContent=editIdx>=0?'แก้ไขบิล':'ข้อมูลบิล';
+  document.getElementById('save-btn').textContent=editIdx>=0?'บันทึกการแก้ไข':'บันทึก';
+  document.getElementById('store').value=d.store||'';
+  document.getElementById('bdate').value=d.date||today();
+  document.getElementById('bcard').value=d.card||'';
+  document.getElementById('card-custom').value=d.cardCustom||'';
+  document.getElementById('card-custom-wrap').classList.toggle('hidden',d.card!=='other');
+  showCardInfo();
+  document.getElementById('binstall').value=d.install||'0';
+  document.getElementById('bnote').value=d.note||'';
+  document.getElementById('disc').value=d.disc||'';
+  document.getElementById('sc').value=d.sc||'';
+  document.getElementById('vat').value=d.vat||'';
+  if(ocrImg) document.getElementById('photo-ph').innerHTML=`<img src="${ocrImg}" style="max-width:100%;border-radius:10px">`;
+  renderItemsList(d.items&&d.items.length?d.items:[],false);
+  calcT();
+  goStep(d.step||1,true);
+  document.getElementById('modal-new').classList.remove('hidden');
+}
+setInterval(()=>{ if(!document.getElementById('modal-new').classList.contains('hidden')) saveDraft(); },2000);
 
 /* ══ STEPS ══ */
 function goStep(n,init=false){
@@ -722,19 +790,21 @@ function goStep(n,init=false){
     let cv=document.getElementById('bcard').value;if(cv==='other') cv=document.getElementById('card-custom').value.trim();
     CB.store=document.getElementById('store').value;CB.date=document.getElementById('bdate').value;CB.card=cv;
     CB.note=document.getElementById('bnote').value;CB.installMonths=parseInt(document.getElementById('binstall').value)||0;
-    if(!CB.ocrItems) renderItemsList([]);calcT();
+    if(!document.getElementById('items-list').children.length) renderItemsList(CB.ocrItems||[], !!CB.ocrItems);
+    calcT();
   }
   if(n===3){collectItems();renderPersons();renderSplit();}
   if(n===4){collectItems();CB.installMonths=parseInt(document.getElementById('binstall').value)||0;renderSum();}
   for(let i=1;i<=4;i++){document.getElementById('step-'+i).classList.toggle('hidden',i!==n);const s=document.getElementById('si-'+i);s.className='step'+(i===n?' active':i<n?' done':'');}
   document.querySelector('#modal-new .modal').scrollTop=0;
+  saveDraft();
 }
 
 /* ══ ITEMS ══ */
-function renderItemsList(items){
+function renderItemsList(items,fromOcr=false){
   const l=document.getElementById('items-list');l.innerHTML='';
   const notice=document.getElementById('ocr-notice');
-  if(items.length&&items[0].price){notice.classList.remove('hidden');items.forEach(it=>addItemEl(it.name,it.qty,it.price));}
+  if(items.length){notice.classList.toggle('hidden',!fromOcr);items.forEach(it=>addItemEl(it.name,it.qty,it.price));}
   else{notice.classList.add('hidden');addItemEl('',1,'');}
 }
 function addItemEl(name='',qty=1,price=''){
@@ -850,10 +920,14 @@ function openDetail(i){
     ${b.items?.length?`<div class="card" style="margin:0 0 12px"><div style="font-family:'DM Sans',sans-serif;font-weight:700;margin-bottom:10px">รายการ</div>${b.items.map(it=>`<div class="trow"><span>${it.name}${it.qty>1?' ×'+it.qty:''}</span><span class="tv">${fmt(it.qty*it.price)}</span></div>`).join('')}${b.discAmt?`<div class="trow"><span>ส่วนลด ${b.disc}%</span><span class="tv-green">-${fmt(b.discAmt)}</span></div>`:''}${b.scAmt?`<div class="trow"><span>SC</span><span class="tv">${fmt(b.scAmt)}</span></div>`:''}${b.vatAmt?`<div class="trow"><span>VAT</span><span class="tv">${fmt(b.vatAmt)}</span></div>`:''}<div class="trow trow-total"><span>รวม</span><span class="tv-red">${fmt(b.grand)}</span></div></div>`:''}
     ${b.personTotals&&Object.keys(b.personTotals).length?`<div class="card" style="margin:0 0 12px"><div style="font-family:'DM Sans',sans-serif;font-weight:700;margin-bottom:10px">${icon('users')} แต่ละคนจ่าย</div>${Object.entries(b.personTotals).map(([p,a])=>`<div class="trow"><span>${icon('user')} ${p}</span><span class="tv">${fmt(a)}</span></div>`).join('')}</div>`:''}
     ${installGrid}
-    <button class="btn btn-block ${b.paid?'btn-orange':'btn-green'}" style="margin-bottom:10px" onclick="togglePaid(${i})">${b.paid?icon('undo')+' ยังไม่ได้จ่าย':icon('check')+' จ่ายแล้วทั้งหมด'}</button>
-    <button class="btn btn-ghost btn-block" style="margin-bottom:10px" onclick="openEdit(${i})">${icon('edit')} แก้ไขบิล</button>
-    <button class="btn btn-danger btn-block" style="margin-bottom:10px" onclick="deleteBill(${i})">${icon('trash')} ลบบิลนี้</button>
-    <button class="btn btn-ghost btn-block" onclick="closeModals()">ปิด</button>`;
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:4px">
+      <button class="btn btn-sm ${b.paid?'btn-orange':'btn-green'}" onclick="togglePaid(${i})">${b.paid?icon('undo'):icon('check')} ${b.paid?'ยังไม่จ่าย':'จ่ายแล้ว'}</button>
+      <button class="btn btn-sm btn-ghost" onclick="openEdit(${i})">${icon('edit')} แก้ไข</button>
+    </div>
+    <div style="display:flex;justify-content:center;align-items:center;gap:20px;padding:10px 0 2px">
+      <span style="font-size:13px;font-weight:600;color:#EF4444;cursor:pointer;display:inline-flex;align-items:center;gap:5px" onclick="deleteBill(${i})">${icon('trash',13)} ลบบิลนี้</span>
+      <span style="font-size:13px;font-weight:600;color:var(--ink-3);cursor:pointer" onclick="closeModals()">ปิด</span>
+    </div>`;
   document.getElementById('modal-detail').classList.remove('hidden');
 }
 function deleteBill(i){if(!confirm('ลบบิลนี้?')) return;bills.splice(i,1);save('bills',bills);closeModals();renderList();}
@@ -861,6 +935,7 @@ function deleteBill(i){if(!confirm('ลบบิลนี้?')) return;bills.sp
 /* ══ INIT ══ */
 document.getElementById('bdate').value=today();
 renderList();
+restoreDraftIfAny();
 if('Notification' in window&&Notification.permission!=='denied') Notification.requestPermission();
 </script>
 </body>
