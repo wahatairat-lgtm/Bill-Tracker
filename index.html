@@ -300,12 +300,9 @@ select {
 .bar-bg   { background: var(--bg); border-radius: 6px; height: 6px; overflow: hidden; }
 .bar-fill { height: 100%; background: var(--accent); border-radius: 6px; }
 
-/* ─── Person-month table ─── */
-.pm-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-.pm-table th { background: var(--bg); padding: 8px 10px; text-align: left; font-weight: 700; color: var(--ink-3); font-size: 11px; text-transform: uppercase; letter-spacing: .5px; }
-.pm-table td { padding: 9px 10px; border-bottom: 1px solid var(--border); }
-.pm-table tr:last-child td { border: none; }
-.pm-table td:not(:first-child) { text-align: right; font-family: 'Space Mono', monospace; font-size: 12px; font-weight: 700; color: var(--accent); }
+/* ─── Person-month card ─── */
+.pm-month-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.pm-month-label { font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 5px; }
 
 /* ─── Modal ─── */
 .modal-bg { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(26,23,20,.55); z-index: 200; display: flex; align-items: flex-end; backdrop-filter: blur(2px); }
@@ -390,6 +387,7 @@ select {
           <option value="Line">Line</option>
           <option value="UOB">UOB</option>
           <option value="CardX">CardX</option>
+          <option value="ShopeePay">ShopeePay</option>
           <option value="other">อื่นๆ...</option>
         </select>
       </div>
@@ -482,6 +480,7 @@ const CARDS = {
   'Line':          { cut:10, due:25 },
   'UOB':           { cut:7,  due:25 },
   'CardX':         { cut:16, due:5  },
+  'ShopeePay':     { cut:null, due:10 },
 };
 
 /* ══ ICONS ══ */
@@ -629,11 +628,18 @@ function renderStats() {
     </div>
     ${allPersons.length&&pmMonths.length?`
     <div class="sec-label">ยอดต่อคน / เดือน</div>
-    <div class="card" style="overflow-x:auto;padding:14px">
-      <table class="pm-table"><thead><tr><th>เดือน</th>${allPersons.map(p=>`<th>${p}</th>`).join('')}</tr></thead><tbody>
-        ${pmMonths.map(m=>{const [y,mo]=m.split('-');return`<tr><td style="font-weight:600;color:var(--ink-2)">${MN[+mo]} ${+y}</td>${allPersons.map(p=>`<td>${personMonth[p]?.[m]?fmt(personMonth[p][m]):'—'}</td>`).join('')}</tr>`;}).join('')}
-      </tbody></table>
-    </div>`:''}
+    ${pmMonths.map(m=>{
+      const [y,mo]=m.split('-');
+      const rows=allPersons.filter(p=>personMonth[p]?.[m]);
+      const monthTotal=rows.reduce((s,p)=>s+personMonth[p][m],0);
+      return `<div class="card">
+        <div class="pm-month-row">
+          <span class="pm-month-label">${icon('calendar',13)} ${MN[+mo]} ${+y}</span>
+          <span class="tv-red">${fmt(monthTotal)}</span>
+        </div>
+        ${rows.map(p=>`<div class="trow"><span>${icon('user')} ${p}</span><span class="tv">${fmt(personMonth[p][m])}</span></div>`).join('')}
+      </div>`;
+    }).join('')}`:''}
     ${months.length?`
     <div class="sec-label">รายเดือน</div>
     <div class="card">
@@ -678,7 +684,7 @@ function showCardInfo() {
   if(val==='other'){info.classList.add('hidden');cw.classList.remove('hidden');return;}
   cw.classList.add('hidden');
   const c=CARDS[val];
-  if(c){const due=getNextDueDate(val),days=daysUntil(due);info.innerHTML=`<div>ตัดบัญชี: <span>วันที่ ${c.cut}</span></div><div>ชำระ: <span>วันที่ ${c.due}</span></div><div>ครบกำหนด: <span style="color:${days<=3?'#DC2626':days<=7?'#D97706':'var(--accent)'}">${due.getDate()}/${due.getMonth()+1} (อีก ${days} วัน)</span></div>`;info.classList.remove('hidden');}
+  if(c){const due=getNextDueDate(val),days=daysUntil(due);const cutLine=c.cut?`<div>ตัดบัญชี: <span>วันที่ ${c.cut}</span></div>`:'';info.innerHTML=`${cutLine}<div>ชำระ: <span>วันที่ ${c.due}</span></div><div>ครบกำหนด: <span style="color:${days<=3?'#DC2626':days<=7?'#D97706':'var(--accent)'}">${due.getDate()}/${due.getMonth()+1} (อีก ${days} วัน)</span></div>`;info.classList.remove('hidden');}
   else info.classList.add('hidden');
 }
 
