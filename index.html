@@ -3,6 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Bill Tracker">
+<meta name="theme-color" content="#F7F5F0">
 <title>Bill Tracker</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -606,13 +610,9 @@ function renderStats() {
   const el=document.getElementById('stats-content');
   if(!bills.length){el.innerHTML=`<div class="empty"><div class="ei">${icon('chart',40)}</div><p>ยังไม่มีข้อมูล</p></div>`;return;}
   const total=bills.reduce((s,b)=>s+(b.grand||0),0);
-  const byCard={},byMonth={};
-  bills.forEach(b=>{
-    if(b.card)  byCard[b.card]  =(byCard[b.card]||0)  +(b.grand||0);
-    if(b.date)  {const m=b.date.slice(0,7);byMonth[m]=(byMonth[m]||0)+(b.grand||0);}
-  });
+  const byCard={};
+  bills.forEach(b=>{ if(b.card) byCard[b.card]=(byCard[b.card]||0)+(b.grand||0); });
   const MN=['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  const months=Object.entries(byMonth).sort((a,b)=>b[0]<a[0]?1:-1).slice(0,6);
   const tCards=Object.entries(byCard).sort((a,b)=>b[1]-a[1]).slice(0,6);
   const allPersons=[...new Set(bills.flatMap(b=>b.persons||[]))];
   const personMonth={};
@@ -653,22 +653,14 @@ function renderStats() {
         ${rows.map(p=>`<div class="trow"><span>${icon('user')} ${p}</span><span class="tv">${fmt(personMonth[p][m])}</span></div>`).join('')}
       </div>`;
     }).join('')}`:''}
-    ${months.length?`
-    <div class="sec-label">รายเดือน</div>
-    <div class="card">
-      ${months.map(([m,amt])=>{const [y,mo]=m.split('-');return`<div class="bar-row"><div class="bar-label"><span>${MN[+mo]} ${+y}</span><span>${fmt(amt)}</span></div><div class="bar-bg"><div class="bar-fill" style="width:${Math.round(amt/total*100)}%"></div></div></div>`;}).join('')}
-    </div>`:''}
     ${tCards.length?`
-    <div class="sec-label">บัตรที่ใช้</div>
-    <div class="card">
-      ${tCards.map(([c,a])=>{const cd=CARDS[c],due=cd?getNextDueDate(c):null,days=daysUntil(due);const ds=due?` · <span style="color:${days<=3?'#DC2626':days<=7?'#D97706':'var(--ink-3)'}">ครบ ${due.getDate()}/${due.getMonth()+1}</span>`:'';return`<div class="trow"><span>${icon('card')} ${c}${ds}</span><span class="tv">${fmt(a)}</span></div>`;}).join('')}
-    </div>`:''}
-    ${Object.keys(cardPersonTotals).length?`
-    <div class="sec-label">แต่ละบัตร ใครจ่ายเท่าไหร่</div>
-    ${Object.entries(cardPersonTotals).map(([c,pt])=>{
-      const cardTotal=Object.values(pt).reduce((s,a)=>s+a,0);
+    <div class="sec-label">แต่ละบัตร</div>
+    ${tCards.map(([c,amt])=>{
+      const cd=CARDS[c],due=cd?getNextDueDate(c):null,days=daysUntil(due);
+      const ds=due?` · <span style="color:${days<=3?'#DC2626':days<=7?'#D97706':'var(--ink-3)'}">ครบ ${due.getDate()}/${due.getMonth()+1}</span>`:'';
+      const pt=cardPersonTotals[c]||{};
       return `<div class="card">
-        <div class="pm-month-row"><span class="pm-month-label">${icon('card',13)} ${c}</span><span class="tv-red">${fmt(cardTotal)}</span></div>
+        <div class="pm-month-row"><span class="pm-month-label">${icon('card',13)} ${c}${ds}</span><span class="tv-red">${fmt(amt)}</span></div>
         ${Object.entries(pt).map(([p,a])=>`<div class="trow"><span>${icon('user')} ${p}</span><span class="tv">${fmt(a)}</span></div>`).join('')}
       </div>`;
     }).join('')}`:''}`;
@@ -783,9 +775,12 @@ function restoreDraftIfAny(){
   document.getElementById('modal-new').classList.remove('hidden');
 }
 setInterval(()=>{ if(!document.getElementById('modal-new').classList.contains('hidden')) saveDraft(); },2000);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden'&&!document.getElementById('modal-new').classList.contains('hidden')) saveDraft(); });
+window.addEventListener('pagehide',()=>{ if(!document.getElementById('modal-new').classList.contains('hidden')) saveDraft(); });
 
 /* ══ STEPS ══ */
 function goStep(n,init=false){
+  if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
   if(n===2&&!init){
     let cv=document.getElementById('bcard').value;if(cv==='other') cv=document.getElementById('card-custom').value.trim();
     CB.store=document.getElementById('store').value;CB.date=document.getElementById('bdate').value;CB.card=cv;
@@ -881,7 +876,7 @@ function saveBill(){
   collectItems();CB.installMonths=parseInt(document.getElementById('binstall').value)||0;
   if(editIdx>=0){const old=bills[editIdx];bills[editIdx]={...CB,id:old.id,img:ocrImg||old.img,paid:old.paid,paidMonths:old.paidMonths||[]};}
   else{bills.push({...CB,id:Date.now(),img:ocrImg,paid:false,paidMonths:[]});}
-  save('bills',bills);closeModals();renderList();showView('home');
+  save('bills',bills);closeModals();renderList();showView('home');window.scrollTo(0,0);
 }
 
 /* ══ TOGGLE PAID ══ */
