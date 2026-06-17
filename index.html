@@ -72,6 +72,8 @@ body {
   font-family: 'Space Mono', monospace;
   font-size: 13px; font-weight: 700; color: var(--accent);
 }
+.header-btn { background: none; border: none; color: var(--ink-3); cursor: pointer; padding: 4px; display: flex; align-items: center; flex-shrink: 0; }
+.header-btn:active { color: var(--accent); }
 
 /* ─── Bottom Nav ─── */
 .bottom-nav {
@@ -308,6 +310,12 @@ select {
 /* ─── Person-month card ─── */
 .pm-month-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 .pm-month-label { font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700; color: var(--ink); display: flex; align-items: center; gap: 5px; }
+.stat-card { cursor: pointer; }
+.stat-card .pm-month-row { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+.stat-card .stat-rows { display: none; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--border); }
+.stat-card.open .stat-rows { display: block; }
+.stat-chev { display: flex; color: var(--ink-3); transition: transform .2s; }
+.stat-card.open .stat-chev { transform: rotate(180deg); }
 
 /* ─── Modal ─── */
 .modal-bg { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(26,23,20,.55); z-index: 200; display: flex; align-items: flex-end; backdrop-filter: blur(2px); }
@@ -329,6 +337,7 @@ select {
     <div class="header-icon"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg></div>
     <h1>Bill Tracker</h1>
     <span class="header-total" id="header-total"></span>
+    <button class="header-btn" onclick="openBackup()" aria-label="สำรอง/ย้ายข้อมูล"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg></button>
   </div>
 
   <div id="view-home" class="view">
@@ -479,6 +488,30 @@ select {
 </div>
 </div>
 
+<!-- BACKUP / MIGRATE MODAL -->
+<div class="modal-bg hidden" id="modal-backup" onclick="bgClose(event,'modal-backup')">
+<div class="modal">
+  <div class="modal-drag"></div>
+  <div class="modal-title">สำรอง/ย้ายข้อมูล</div>
+  <p style="font-size:13px;color:var(--ink-2);line-height:1.6;margin-bottom:16px">iOS แยกข้อมูลระหว่าง Safari กับแอพที่กด "Add to Home Screen" ไว้คนละชุด — ก่อนกด Add to Home Screen ให้กด "คัดลอก" ข้อมูลที่นี่ไว้ก่อน แล้วเปิดแอพจากหน้าจอ Home มา "นำเข้า" อีกครั้ง</p>
+  <div class="fg">
+    <label>ส่งออกข้อมูล</label>
+    <textarea id="backup-export" readonly rows="4" style="font-family:'Space Mono',monospace;font-size:11px"></textarea>
+    <div style="display:flex;gap:10px;margin-top:8px">
+      <button class="btn btn-ghost btn-sm" style="flex:1" onclick="copyBackup()">คัดลอก</button>
+      <button class="btn btn-ghost btn-sm" style="flex:1" onclick="downloadBackup()">ดาวน์โหลดไฟล์</button>
+    </div>
+  </div>
+  <div class="fg">
+    <label>นำเข้าข้อมูล</label>
+    <textarea id="backup-import" rows="4" placeholder="วางข้อมูลที่คัดลอกไว้ที่นี่" style="font-family:'Space Mono',monospace;font-size:11px"></textarea>
+    <button class="btn btn-primary btn-sm btn-block" style="margin-top:8px" onclick="importBackup()">นำเข้าข้อมูล</button>
+  </div>
+  <div id="backup-status" style="font-size:12px;color:var(--accent);font-weight:600;min-height:16px;margin-bottom:6px"></div>
+  <button class="btn btn-ghost btn-block" onclick="closeBackupModal()">ปิด</button>
+</div>
+</div>
+
 <script>
 /* ══ CONSTANTS ══ */
 const CARDS = {
@@ -515,6 +548,8 @@ const ICONS = {
   store:'<path d="M6 2L3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/>',
   clock:'<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 15.5 14"/>',
   x:'<line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>',
+  save:'<path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>',
+  chev:'<polyline points="6 9 12 15 18 9"/>',
 };
 function icon(name,size=14){
   return `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px;flex-shrink:0">${ICONS[name]||''}</svg>`;
@@ -579,7 +614,15 @@ function renderList() {
   const total=bills.reduce((s,b)=>s+(b.grand||0),0);
   document.getElementById('header-total').textContent=bills.length?fmt(total):'';
   checkDueAlerts();
-  if(!bills.length){el.innerHTML='';em.classList.remove('hidden');return;}
+  if(!bills.length){
+    el.innerHTML='';em.classList.remove('hidden');
+    let hint=document.getElementById('standalone-hint');
+    if(window.navigator.standalone){
+      if(!hint){hint=document.createElement('p');hint.id='standalone-hint';hint.style.marginTop='12px';hint.style.fontSize='13px';hint.style.fontWeight='600';hint.style.color='var(--accent)';em.appendChild(hint);}
+      hint.innerHTML=`ย้ายมาจาก Safari? แตะปุ่ม ${icon('save',13)} มุมขวาบนเพื่อนำเข้าข้อมูลเดิม`;
+    } else if(hint){hint.remove();}
+    return;
+  }
   em.classList.add('hidden');
   el.innerHTML=[...bills].reverse().map((b,ri)=>{
     const i=bills.length-1-ri;
@@ -645,12 +688,12 @@ function renderStats() {
       const [y,mo]=m.split('-');
       const rows=allPersons.filter(p=>personMonth[p]?.[m]);
       const monthTotal=rows.reduce((s,p)=>s+personMonth[p][m],0);
-      return `<div class="card">
+      return `<div class="card stat-card" onclick="this.classList.toggle('open')">
         <div class="pm-month-row">
           <span class="pm-month-label">${icon('calendar',13)} ${MN[+mo]} ${+y}</span>
-          <span class="tv-red">${fmt(monthTotal)}</span>
+          <span style="display:flex;align-items:center;gap:6px"><span class="tv-red">${fmt(monthTotal)}</span><span class="stat-chev">${icon('chev',12)}</span></span>
         </div>
-        ${rows.map(p=>`<div class="trow"><span>${icon('user')} ${p}</span><span class="tv">${fmt(personMonth[p][m])}</span></div>`).join('')}
+        <div class="stat-rows">${rows.map(p=>`<div class="trow"><span>${icon('user')} ${p}</span><span class="tv">${fmt(personMonth[p][m])}</span></div>`).join('')}</div>
       </div>`;
     }).join('')}`:''}
     ${tCards.length?`
@@ -659,9 +702,9 @@ function renderStats() {
       const cd=CARDS[c],due=cd?getNextDueDate(c):null,days=daysUntil(due);
       const ds=due?` · <span style="color:${days<=3?'#DC2626':days<=7?'#D97706':'var(--ink-3)'}">ครบ ${due.getDate()}/${due.getMonth()+1}</span>`:'';
       const pt=cardPersonTotals[c]||{};
-      return `<div class="card">
-        <div class="pm-month-row"><span class="pm-month-label">${icon('card',13)} ${c}${ds}</span><span class="tv-red">${fmt(amt)}</span></div>
-        ${Object.entries(pt).map(([p,a])=>`<div class="trow"><span>${icon('user')} ${p}</span><span class="tv">${fmt(a)}</span></div>`).join('')}
+      return `<div class="card stat-card" onclick="this.classList.toggle('open')">
+        <div class="pm-month-row"><span class="pm-month-label">${icon('card',13)} ${c}${ds}</span><span style="display:flex;align-items:center;gap:6px"><span class="tv-red">${fmt(amt)}</span><span class="stat-chev">${icon('chev',12)}</span></span></div>
+        <div class="stat-rows">${Object.entries(pt).map(([p,a])=>`<div class="trow"><span>${icon('user')} ${p}</span><span class="tv">${fmt(a)}</span></div>`).join('')}</div>
       </div>`;
     }).join('')}`:''}`;
 }
@@ -728,7 +771,54 @@ function resetForm(){
   document.getElementById('ocr-bar').className='hidden';document.getElementById('file-inp').value='';renderItemsList([]);
 }
 function closeModals(){clearDraft();document.getElementById('modal-new').classList.add('hidden');document.getElementById('modal-detail').classList.add('hidden');}
-function bgClose(e,id){if(e.target===e.currentTarget) closeModals();}
+function bgClose(e,id){
+  if(e.target!==e.currentTarget) return;
+  if(id==='modal-new'||id==='modal-detail') closeModals();
+  else document.getElementById(id).classList.add('hidden');
+}
+
+/* ══ BACKUP / MIGRATE (works around iOS keeping separate storage for Safari vs. "Add to Home Screen") ══ */
+function openBackup(){
+  document.getElementById('backup-export').value=JSON.stringify({bills,knownPersons},null,2);
+  document.getElementById('backup-import').value='';
+  setBackupStatus('');
+  document.getElementById('modal-backup').classList.remove('hidden');
+}
+function closeBackupModal(){ document.getElementById('modal-backup').classList.add('hidden'); }
+function setBackupStatus(msg){ document.getElementById('backup-status').textContent=msg; }
+async function copyBackup(){
+  const ta=document.getElementById('backup-export');
+  try{ await navigator.clipboard.writeText(ta.value); setBackupStatus('คัดลอกแล้ว ✓'); }
+  catch(e){
+    ta.focus();ta.select();
+    try{ document.execCommand('copy'); setBackupStatus('คัดลอกแล้ว ✓'); }
+    catch(e2){ setBackupStatus('คัดลอกไม่ได้ — เลือกข้อความแล้วคัดลอกเอง'); }
+  }
+}
+function downloadBackup(){
+  const blob=new Blob([document.getElementById('backup-export').value],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download=`bill-tracker-backup-${today()}.json`;
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+function mergeBackup(data){
+  if(!data||typeof data!=='object') throw new Error('invalid');
+  const importedBills=Array.isArray(data.bills)?data.bills:[];
+  const importedPersons=Array.isArray(data.knownPersons)?data.knownPersons:[];
+  const existingIds=new Set(bills.map(b=>b.id));
+  importedBills.forEach(b=>{ if(!existingIds.has(b.id)){ bills.push(b); existingIds.add(b.id); } });
+  importedPersons.forEach(p=>{ if(!knownPersons.includes(p)) knownPersons.push(p); });
+  save('bills',bills);save('knownPersons',knownPersons);
+}
+function importBackup(){
+  const txt=document.getElementById('backup-import').value.trim();
+  if(!txt){ setBackupStatus('วางข้อมูลก่อนนำเข้า'); return; }
+  let data; try{ data=JSON.parse(txt); }catch(e){ setBackupStatus('ข้อมูลไม่ถูกต้อง — ตรวจสอบว่าคัดลอกมาครบ'); return; }
+  if(!confirm('นำเข้าข้อมูลนี้? รายการที่ซ้ำกันจะไม่ถูกเพิ่มซ้ำ')) return;
+  try{ mergeBackup(data); renderList(); closeBackupModal(); alert('นำเข้าข้อมูลสำเร็จ'); }
+  catch(e){ setBackupStatus('นำเข้าไม่สำเร็จ — ตรวจสอบข้อมูลที่วาง'); }
+}
 
 /* ══ DRAFT AUTOSAVE (so in-progress entry survives a reload, e.g. after "Add to Home Screen") ══ */
 function saveDraft(){
