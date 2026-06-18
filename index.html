@@ -673,7 +673,7 @@ function renderStats() {
   const byCard={};
   bills.forEach(b=>{ if(b.card) byCard[b.card]=(byCard[b.card]||0)+(b.grand||0); });
   const MN=['','ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
-  const tCards=Object.entries(byCard).sort((a,b)=>b[1]-a[1]).slice(0,6);
+  const tCards=Object.entries(byCard).sort((a,b)=>b[1]-a[1]);
   const allPersons=[...new Set(bills.flatMap(b=>b.persons||[]))];
   const personMonth={};
   bills.forEach(b=>{
