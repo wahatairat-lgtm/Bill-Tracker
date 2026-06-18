@@ -390,7 +390,7 @@ select {
     </div>
     <div class="fg"><label>ชื่อร้าน</label><input type="text" id="store" placeholder="เช่น MK, Starbucks, 7-11"></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
-      <div class="fg"><label>วันที่</label><input type="date" id="bdate"></div>
+      <div class="fg"><label>วันที่</label><input type="date" id="bdate" onchange="showCardInfo()"></div>
       <div class="fg">
         <label>บัตรที่ใช้</label>
         <select id="bcard" onchange="showCardInfo()">
@@ -573,6 +573,23 @@ function getNextDueDate(cardName) {
   if(due<=now) due=new Date(now.getFullYear(),now.getMonth()+1,c.due);
   return due;
 }
+/* due date for a specific transaction: respects the card's statement-cut day.
+   a purchase on/before the cut day falls in that cut's cycle; after the cut day it
+   rolls into the next cycle. the due day's month is then placed relative to the
+   cut (same month if due-day > cut-day, otherwise the following month). */
+function getBillDueDate(cardName, billDateStr) {
+  const c=CARDS[cardName]; if(!c) return null;
+  const ds=billDateStr||today();
+  const [y,mo,d]=ds.split('-').map(Number);
+  const m0=mo-1;
+  if(c.cut==null){
+    const dueM=d<=c.due?m0:m0+1;
+    return new Date(y,dueM,c.due);
+  }
+  const cutM=d<=c.cut?m0:m0+1;
+  const dueM=c.due<=c.cut?cutM+1:cutM;
+  return new Date(y,dueM,c.due);
+}
 function daysUntil(date) { if(!date) return Infinity; return Math.ceil((date-new Date())/86400000); }
 
 /* ══ NOTIFICATIONS ══ */
@@ -581,7 +598,7 @@ function checkDueAlerts() {
   const byCard={};
   bills.forEach(b => {
     if(!b.card||!CARDS[b.card]) return;
-    const days=daysUntil(getNextDueDate(b.card));
+    const days=daysUntil(getBillDueDate(b.card,b.date));
     if(days>3||days<0) return;
     if(!byCard[b.card]) byCard[b.card]={days,bills:[]};
     byCard[b.card].bills.push(b);
@@ -628,7 +645,7 @@ function renderList() {
     const i=bills.length-1-ri;
     const paidCount=b.paidMonths?b.paidMonths.length:0, totalM=b.installMonths||0;
     const installLabel=totalM>0?`<span>${icon('layers')} ${paidCount}/${totalM} งวด</span>`:'';
-    const due=b.card&&CARDS[b.card]?getNextDueDate(b.card):null, days=daysUntil(due);
+    const due=b.card&&CARDS[b.card]?getBillDueDate(b.card,b.date):null, days=daysUntil(due);
     const dueTag=due&&days<=3?`<span class="tag tag-due">ครบ ${days}ว.</span>`:due&&days<=7?`<span class="tag tag-soon">อีก ${days}ว.</span>`:'';
     return `<div class="bill-item ${b.paid?'paid':''}" onclick="openDetail(${i})">
       <div class="bill-body">
@@ -741,7 +758,7 @@ function showCardInfo() {
   if(val==='other'){info.classList.add('hidden');cw.classList.remove('hidden');return;}
   cw.classList.add('hidden');
   const c=CARDS[val];
-  if(c){const due=getNextDueDate(val),days=daysUntil(due);const cutLine=c.cut?`<div>ตัดบัญชี: <span>วันที่ ${c.cut}</span></div>`:'';info.innerHTML=`${cutLine}<div>ชำระ: <span>วันที่ ${c.due}</span></div><div>ครบกำหนด: <span style="color:${days<=3?'#DC2626':days<=7?'#D97706':'var(--accent)'}">${due.getDate()}/${due.getMonth()+1} (อีก ${days} วัน)</span></div>`;info.classList.remove('hidden');}
+  if(c){const bd=document.getElementById('bdate').value;const due=getBillDueDate(val,bd),days=daysUntil(due);const cutLine=c.cut?`<div>ตัดบัญชี: <span>วันที่ ${c.cut}</span></div>`:'';info.innerHTML=`${cutLine}<div>ชำระ: <span>วันที่ ${c.due}</span></div><div>ครบกำหนด: <span style="color:${days<=3?'#DC2626':days<=7?'#D97706':'var(--accent)'}">${due.getDate()}/${due.getMonth()+1} (อีก ${days} วัน)</span></div>`;info.classList.remove('hidden');}
   else info.classList.add('hidden');
 }
 
